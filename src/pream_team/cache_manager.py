@@ -1,6 +1,7 @@
 from typing import Dict, List
 import json
 
+
 class CacheManager:
     def __init__(self, cache_file_path: str):
         """
@@ -17,7 +18,7 @@ class CacheManager:
         Returns an empty dictionary if the file does not exist or is empty.
         """
         try:
-            with open(self.cache_file_path, 'r') as file:
+            with open(self.cache_file_path, "r") as file:
                 return json.load(file)
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
@@ -29,12 +30,9 @@ class CacheManager:
         param: prs: The PRs to be saved.
         param: timestamp: The timestamp of when the PRs were saved.
         """
-        self.cache[user] = {
-            "timestamp": timestamp,
-            "prs": prs
-        }
+        self.cache[user] = {"timestamp": timestamp, "prs": prs}
         try:
-            with open(self.cache_file_path, 'w') as file:
+            with open(self.cache_file_path, "w") as file:
                 json.dump(self.cache, file, indent=4)
         except (FileNotFoundError, json.JSONDecodeError):
             exit(1)
@@ -46,4 +44,3 @@ class CacheManager:
         :param user: The username of the user for whom the PRs are being loaded.
         """
         return self.cache.get(user, {})
-
