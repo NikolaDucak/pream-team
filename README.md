@@ -1,6 +1,12 @@
 # PReam-Team
 A TUI utility that lists open github PRs for your team.
 
+# Get it
+
+```
+python3 -m pip install --index-url https://test.pypi.org/simple/ pream-team --upgrade
+```
+
 # How to
 you need a github token that has some priviledges.
 you also need to provide github org and username.
