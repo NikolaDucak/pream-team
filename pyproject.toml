@@ -10,7 +10,7 @@ pream-team = "pream_team.__main__:main"
 
 [project]
 name = "pream-team"
-version = "0.0.3"
+version = "1.0.0"
 authors = [
   { name="Nikola Dućak", email="nikola.duca@gmail.com" },
 ]
