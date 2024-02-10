@@ -3,11 +3,9 @@ A TUI utility that lists open github PRs for your team.
 ![banner](./banner.png)
 
 # Get it
-As it's early in the development stages, it's currently only availabe on the test pypy:
 ```
-python3 -m pip install --index-url https://test.pypi.org/simple/ pream-team --upgrade
+python3 -m pip install  pream-team --upgrade
 ```
-
 
 # How to
 You need a GitHub personal access token with full repo scope
