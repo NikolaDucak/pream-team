@@ -161,7 +161,7 @@ class GitHubPRFetcher:
         return None
 
 
-    async def get_open_prs_for_user(self, username: str, org: str, days_back: int, status_reporter) -> List[Dict[str, str]]:
+    async def get_open_prs_for_user(self, username: str, org: Optional[str], days_back: int, status_reporter) -> List[Dict[str, str]]:
         """
         Fetch open PRs for a specific user from a specific organization.
         :param username: The username of the user for whom the PRs are to be fetched.
@@ -173,7 +173,11 @@ class GitHubPRFetcher:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days_back)
         date_filter = f"{start_date.strftime('%Y-%m-%d')}..{end_date.strftime('%Y-%m-%d')}"
-        req_str = f"{GITHUB_API_URL}/search/issues?q=author:{username}+org:{org}+type:pr+is:open+created:{date_filter}"
+        req_str = ""
+        if org is None:
+            req_str = f"{GITHUB_API_URL}/search/issues?q=author:{username}+type:pr+is:open+created:{date_filter}"
+        else:
+            req_str = f"{GITHUB_API_URL}/search/issues?q=author:{username}+org:{org}+type:pr+is:open+created:{date_filter}"
 
         if self.session == None:
             raise Exception("Session not initialized. Use 'async with' to initialize the session.")
@@ -282,7 +286,7 @@ class PRGroup(urwid.BoxAdapter):
         return len(self.prs)
 
 class App:
-    def __init__(self, token: str, org_name: str, usernames: List[str], days_back: int, cache_dir: str, update_on_startup: bool) -> None:
+    def __init__(self, token: str, org_name: Optional[str], usernames: List[str], days_back: int, cache_dir: str, update_on_startup: bool) -> None:
         """
         A class to represent the main application.
         :param token: The GitHub API token to be used for authentication.
@@ -292,7 +296,7 @@ class App:
         :param cache_dir: The directory in which the cache file is to be stored.
         :param update_on_startup: A boolean indicating whether PRs should be fetched immediately upon startup.
         """
-        self.org_name: str = org_name
+        self.org_name: Optional[str] = org_name
         self.usernames: List[str] = usernames
         self.days_back: int = days_back
         self.token = token
@@ -381,7 +385,7 @@ class App:
     def run(self) -> None:
         self.main_loop.run()
 
-def parse_args() -> Tuple[str, str, List[str], int, str, bool]:
+def parse_args() -> Tuple[str, Optional[str], List[str], int, str, bool]:
     parser = argparse.ArgumentParser(description="Fetch GitHub PRs for specific users from the past N days.")
     parser.add_argument("--names", nargs='+', help="List of GitHub usernames.")
     parser.add_argument("--days", type=int, help="Number of past days to search for PRs.")
@@ -393,13 +397,13 @@ def parse_args() -> Tuple[str, str, List[str], int, str, bool]:
 
     args = parser.parse_args()
 
-    token, org_name, usernames, days_back, cache_file_path, update_on_startup = "", "", [], 30, "", True
+    token, org_name, usernames, days_back, cache_file_path, update_on_startup = "", None, [], 30, "", True
 
     if os.path.exists(args.file):
         with open(args.file, 'r') as f:
             data = yaml.safe_load(f)
             token = data.get('token', "")
-            org_name = data.get('org', "")
+            org_name = data.get('org', None)
             usernames = data.get("names", [])
             days_back = data.get("days-back", 30)
             cache_file_path = data.get("cache_dir", os.environ["HOME"]+"/.prs/cache.json")
@@ -414,8 +418,8 @@ def parse_args() -> Tuple[str, str, List[str], int, str, bool]:
     if args.days:
         days_back = args.days
 
-    if not usernames or not token or not org_name:
-        print("Token, Organization name or Usernames must be provided.")
+    if not usernames or not token:
+        print("Token and Usernames must be provided.")
         exit(1)
 
     return token, org_name, usernames, days_back, cache_file_path, update_on_startup
