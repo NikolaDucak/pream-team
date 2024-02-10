@@ -1,5 +1,6 @@
 # PReam-Team
 A TUI utility that lists open github PRs for your team.
+[![banned](./banner.png) ]
 
 # How to
 you need a github token that has some priviledges.
