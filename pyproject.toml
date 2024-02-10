@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pream-team"
+version = "0.0.1"
+authors = [
+  { name="Nikola Dućak", email="nikola.duca@gmail.com" },
+]
+description = "PReam-Team is a TUI utility that lists out open GitHub PRs for your team."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/nikoladucak/pream-team"
+Issues = "https://github.com/nikoladucak/pream-team"
