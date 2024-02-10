@@ -34,7 +34,7 @@ Or through a yaml file (default location is ~/.prs/config.yml):
 org: some-org # optional
 token: some-token # required
 days-back: 25 # optional
-names: # required
+names: # required (at least one)
   - "Teamamte-username-1"
   - "Teamamte-username-2"
   - "Teamamte-username-3"
