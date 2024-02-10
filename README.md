@@ -2,11 +2,19 @@
 A TUI utility that lists open github PRs for your team.
 ![banner](./banner.png)
 
-# How to
-you need a github token that has some priviledges.
-you also need to provide github org and username.
+# Get it
+As it's early in the development stages, it's currently only availabe on the test pypy:
+```
+python3 -m pip install --index-url https://test.pypi.org/simple/ pream-team --upgrade
+```
 
-you can do through command line:
+
+# How to
+You need a GitHub personal access token with full repo scope
+and with admin org read access if you want to specify `org` value.
+
+Besides the token you also need to provide a list of github usernames. You can do that through command line:
+
 
 ```
 options:
@@ -20,13 +28,13 @@ options:
                         arguments override YAML file configuration)
 ```
 
-or through a yaml file (default location is ~/.prs/config.yml)
+Or through a yaml file (default location is ~/.prs/config.yml):
 
 ```
-org: some-org
-token: some-token
-days-back: 25
-names:
+org: some-org # optional
+token: some-token # required
+days-back: 25 # optional
+names: # required
   - "Teamamte-username-1"
   - "Teamamte-username-2"
   - "Teamamte-username-3"
