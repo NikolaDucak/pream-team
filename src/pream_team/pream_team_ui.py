@@ -39,23 +39,25 @@ class PRButton(urwid.Button):
 
 
 class PRGroup(urwid.BoxAdapter):
-    """
-    A class to represent a group of PRs for a specific user.
-    :param user: The username of the user for whom the PRs are being displayed.
-    :param prs: A list of PRs to be displayed.
-    :param timestamp: The timestamp at which the PRs were last updated.
-    """
-
     def __init__(self, user, prs, timestamp):
+        """
+        A class to represent a group of PRs for a specific user.
+        :param user: The username of the user for whom the PRs are being displayed.
+        :param prs: A list of PRs to be displayed.
+        :param timestamp: The timestamp at which the PRs were last updated.
+        """
         self.user = user
         self.prs = prs
         self.timestamp = timestamp
         self.inner_list_walker = urwid.SimpleFocusListWalker([])
+        inner_list_box = urwid.ListBox(self.inner_list_walker)
+        title = f"{self.user} {timestamp}"
+        title_attr = "title" if len(self.prs) > 0 else "title-empty"
+        self.line_box = urwid.LineBox(inner_list_box, title=title)
+        self.line_box_attr_map = urwid.AttrMap(self.line_box, title_attr)
+        super().__init__(self.line_box_attr_map, height=len(prs) + 2)
         for pr in prs:
             self._add_pr_button(pr)
-        self.inner_list_box = urwid.ListBox(self.inner_list_walker)
-        self._update_list_box_title(timestamp)
-        super().__init__(self.green_bordered_list_box, height=len(prs) + 2)
 
     def _add_pr_button(self, pr):
         """
@@ -74,10 +76,8 @@ class PRGroup(urwid.BoxAdapter):
         """
         title = f"{self.user} {timestamp}"
         title_attr = "title" if self.prs else "title-empty"
-        self.green_bordered_list_box = urwid.AttrMap(
-            urwid.LineBox(self.inner_list_box, title=title), title_attr
-        )
-        self.box_widget = self.green_bordered_list_box
+        self.line_box.set_title(title)
+        self.line_box_attr_map.attr_map = {None: title_attr}
 
     def set_prs(self, prs, timestamp):
         """
@@ -91,6 +91,7 @@ class PRGroup(urwid.BoxAdapter):
         for pr in prs:
             self._add_pr_button(pr)
         self._update_list_box_title(timestamp)
+        self.height = len(prs) + 2
         self._invalidate()
 
     def set_updating_prs_title(self):
@@ -98,10 +99,8 @@ class PRGroup(urwid.BoxAdapter):
         Update the title of the list box to indicate that the PRs are being updated.
         """
         title = f"Updating - {self.user} {self.timestamp}"
-        self.green_bordered_list_box = urwid.AttrMap(
-            urwid.LineBox(self.inner_list_box, title), "title-updating"
-        )
-        self.box_widget = self.green_bordered_list_box
+        self.line_box_attr_map.attr_map = {None: "title-updating"}
+        self.line_box.set_title(title)
 
     def get_user(self):
         return self.user
