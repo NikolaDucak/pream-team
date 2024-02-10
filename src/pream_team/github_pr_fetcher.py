@@ -142,11 +142,8 @@ class GitHubPRFetcher:
         date_filter = (
             f"{start_date.strftime('%Y-%m-%d')}..{end_date.strftime('%Y-%m-%d')}"
         )
-        req_str = ""
-        if self.org is None:
-            req_str = f"{GITHUB_API_URL}/search/issues?q=author:{username}+type:pr+is:open+created:{date_filter}"
-        else:
-            req_str = f"{GITHUB_API_URL}/search/issues?q=author:{username}+org:{self.org}+type:pr+is:open+created:{date_filter}"
+        org_str = f"+org:{self.org}" if self.org is not None else ""
+        req_str = f"{GITHUB_API_URL}/search/issues?q=author:{username}{org_str}+type:pr+is:open+created:{date_filter}"
 
         if self.session == None:
             raise Exception(
