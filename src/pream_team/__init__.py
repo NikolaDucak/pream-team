@@ -420,8 +420,12 @@ def parse_args() -> Tuple[str, str, List[str], int, str, bool]:
 
     return token, org_name, usernames, days_back, cache_file_path, update_on_startup
 
-if __name__ == "__main__":
+
+def app_main():
     token, org_name, usernames, days_back, cache_file_path, update_on_startup = parse_args()
     app = App(token, org_name, usernames, days_back, cache_file_path, update_on_startup)
     app.run()
 
+
+if __name__ == "__main__":
+    app_main()
