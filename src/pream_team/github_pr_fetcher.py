@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import aiohttp
 import asyncio
 import time
@@ -22,6 +22,25 @@ async def _sleep_updating(duration, interrupt_after, callback):
         callback(duration)
         await asyncio.sleep(sleep_time)
         duration -= sleep_time
+
+
+class GitHubApprovalFetcher:
+    def __init__(self, session: aiohttp.ClientSession) -> None:
+        self.session: aiohttp.ClientSession = session
+
+    async def fetch(self, pr_link: str) -> List[Dict[str, str]]:
+        approvals: List[Dict[str, str]] = []
+
+        async with self.session.get(pr_link + "/reviews") as response:
+            if response.status == 200:
+                approvals_data: List[Dict] = await response.json()
+                approvals = [
+                    review
+                    for review in approvals_data
+                    if review.get("state") == "APPROVED"
+                ]
+
+        return approvals
 
 
 class GitHubPRFetcher:
@@ -151,6 +170,7 @@ class GitHubPRFetcher:
             )
 
         status_reporter(f"Fetching prs for {username}...")
+        prs_data: Dict = {}
         async with self.session.get(req_str) as response:
             # Primary Rate Limit Check
             if (
@@ -174,6 +194,23 @@ class GitHubPRFetcher:
             if response == None or response.status not in [200, 403]:
                 status_reporter("Error during request :/")
                 return []
+            prs_data: Dict = await response.json()
 
-            await asyncio.sleep(2.4)  # this should help with rate limitihg
-            return (await response.json()).get("items", [])
+        prs: List[Dict[str, Any]] = prs_data.get("items", [])
+        for pr in prs:
+            reviews_url: str = pr.get("pull_request", {}).get("url", "") + "/reviews"
+            async with self.session.get(reviews_url) as reviews_response:
+                if reviews_response.status == 200:
+                    reviews_data: List[Dict] = await reviews_response.json()
+                    pr["reviews"] = reviews_data
+                else:
+                    pr["reviews"] = []
+        return prs
+
+    async def _get_approvals_for_pr(self, pr_link: str) -> List[Dict[str, str]]:
+        if self.session is None:
+            raise Exception(
+                "Session not initialized. Use 'async with' to initialize the session."
+            )
+        approval_fetcher: GitHubApprovalFetcher = GitHubApprovalFetcher(self.session)
+        return await approval_fetcher.fetch(pr_link)

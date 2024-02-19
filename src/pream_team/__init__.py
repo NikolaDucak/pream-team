@@ -1,4 +1,5 @@
 from typing import List, Tuple, Optional
+
 import argparse
 import os
 import yaml
@@ -15,7 +16,7 @@ def initialize_cache_manager(cache_file_path: str) -> Optional[CacheManager]:
         return None
 
 
-def parse_args() -> Tuple[str, Optional[str], List[str], int, str, bool]:
+def parse_args() -> Tuple[str, Optional[str], List[str], int, str, bool, Optional[str]]:
     parser = argparse.ArgumentParser(
         description="Fetch GitHub PRs for specific users from the past N days."
     )
@@ -25,6 +26,8 @@ def parse_args() -> Tuple[str, Optional[str], List[str], int, str, bool]:
     )
     parser.add_argument("--token", type=str, help="GitHub API token.")
     parser.add_argument("--org", type=str, help="GitHub organization name.")
+    parser.add_argument("--me", type=str, help="Your GH account name.")
+
     parser.add_argument(
         "--file",
         type=str,
@@ -35,13 +38,14 @@ def parse_args() -> Tuple[str, Optional[str], List[str], int, str, bool]:
 
     args = parser.parse_args()
 
-    token, org_name, usernames, days_back, cache_file_path, update_on_startup = (
+    token, org_name, usernames, days_back, cache_file_path, update_on_startup, me = (
         "",
         None,
         [],
         30,
         "",
         True,
+        None,
     )
 
     if os.path.exists(args.file):
@@ -51,6 +55,7 @@ def parse_args() -> Tuple[str, Optional[str], List[str], int, str, bool]:
             org_name = data.get("org", None)
             usernames = data.get("names", [])
             days_back = data.get("days-back", 30)
+            me = data.get("me", None)
             cache_file_path = data.get(
                 "cache_dir", os.environ["HOME"] + "/.prs/cache.json"
             )
@@ -64,16 +69,18 @@ def parse_args() -> Tuple[str, Optional[str], List[str], int, str, bool]:
         usernames = args.names
     if args.days:
         days_back = args.days
+    if args.me:
+        me = args.me
 
     if not usernames or not token:
         print("Token and Usernames must be provided.")
         exit(1)
 
-    return token, org_name, usernames, days_back, cache_file_path, update_on_startup
+    return token, org_name, usernames, days_back, cache_file_path, update_on_startup, me
 
 
 def app_main():
-    token, org_name, usernames, days_back, cache_file_path, update_on_startup = (
+    token, org_name, usernames, days_back, cache_file_path, update_on_startup, me = (
         parse_args()
     )
 
@@ -83,7 +90,7 @@ def app_main():
     def fetcher_factory():
         return GitHubPRFetcher(token, org_name, days_back)
 
-    app = PreamTeamApp(fetcher_factory, cache, ui, usernames, update_on_startup)
+    app = PreamTeamApp(fetcher_factory, cache, ui, usernames, update_on_startup, me)
     app.run()
 
 

@@ -2,6 +2,9 @@ from typing import Tuple, Optional, Callable
 import asyncio
 import urwid
 import webbrowser
+import datetime
+
+from urwid.command_map import enum
 
 from pream_team.cache_manager import CacheManager
 from pream_team.github_pr_fetcher import GitHubPRFetcher
@@ -17,21 +20,53 @@ COLOR_PALETTE = [
 ]
 
 
+class MyApprovalStatus(enum.Enum):
+    APPROVED = "v"
+    COMMENTED = "@"
+    CHANGES_REQUESTED = "X"
+    NONE = " "
+    DISABLED = ""
+
+
 class PRButton(urwid.Button):
-    def __init__(self, pr_title, pr_url, draft, repo):
-        """
-        A class to represent a button that opens a PR in the browser when clicked.
-        :param pr_title: The title of the PR.
-        :param pr_url: The URL of the PR.
-        :param draft: A boolean indicating whether the PR is a draft.
-        :param repo: The name of the repository to which the PR belongs.
-        """
+
+    def styles(self, draft):
+        if draft:
+            return "button_draft", "button_draft_focused"
+        else:
+            return "button_ready", "button_ready_focused"
+
+    def __init__(
+        self,
+        pr_title: str,
+        pr_url: str,
+        created_at: str,
+        draft: bool,
+        repo: str,
+        approvals: int,
+        my_approval_status: MyApprovalStatus,
+    ):
         super().__init__("")
-        self.pr_title = f"{'[draft]' if draft else '[ready]'} [{repo}] - {pr_title}"
+        if my_approval_status == MyApprovalStatus.DISABLED:
+            self.pr_title = (
+                f"[{approvals}] [{'draft' if draft else 'ready'}|{repo}] - {pr_title}"
+            )
+        else:
+            self.pr_title = f"[{my_approval_status.value}|{approvals}] [{'draft' if draft else 'ready'}|{repo}] - {pr_title}"
         self.pr_url = pr_url
-        s = "button_draft" if draft else "button_ready"
-        sf = "button_draft_focused" if draft else "button_ready_focused"
-        self._w = urwid.AttrMap(urwid.SelectableIcon(self.pr_title, 0), s, sf)
+        left_widget = urwid.Text(self.pr_title)
+        right_widget = urwid.Text(f"{created_at[0:10]}")
+        columns = urwid.Columns(
+            [
+                ("weight", 1, left_widget),
+                ("fixed", 10, right_widget),
+            ]
+        )
+        # complete the styles
+
+        n, f = self.styles(draft)
+        self._w = urwid.AttrMap(columns, n, f)
+
         urwid.connect_signal(self, "click", self.open_pr)
 
     def open_pr(self, _):
@@ -39,7 +74,7 @@ class PRButton(urwid.Button):
 
 
 class PRGroup(urwid.BoxAdapter):
-    def __init__(self, user, prs, timestamp):
+    def __init__(self, user, prs, timestamp, me: Optional[str]):
         """
         A class to represent a group of PRs for a specific user.
         :param user: The username of the user for whom the PRs are being displayed.
@@ -57,16 +92,45 @@ class PRGroup(urwid.BoxAdapter):
         self.line_box_attr_map = urwid.AttrMap(self.line_box, title_attr)
         super().__init__(self.line_box_attr_map, height=len(prs) + 2)
         for pr in prs:
-            self._add_pr_button(pr)
+            self._add_pr_button(pr, me)
 
-    def _add_pr_button(self, pr):
+    def _add_pr_button(self, pr, me: Optional[str]):
         """
         Add a PR button to the list of PRs.
         :param pr: The PR to be added as a button.
         """
+        latest_review_time = datetime.datetime(1900, 1, 1)
+        my_approval_status = MyApprovalStatus.DISABLED
+        if me is not None:
+            my_approval_status = MyApprovalStatus.NONE
+            me = me.lower()
+            for review in pr["reviews"]:
+                if review["user"]["login"].lower() == me:
+                    current_review_time = datetime.datetime.strptime(
+                        review["submitted_at"], "%Y-%m-%dT%H:%M:%SZ"
+                    )
+                    if current_review_time > latest_review_time:
+                        latest_review_time = current_review_time
+                        my_approval_status = MyApprovalStatus.CHANGES_REQUESTED
+                        if review["state"] == "APPROVED":
+                            my_approval_status = MyApprovalStatus.APPROVED
+                        elif review["state"] == "COMMENTED":
+                            my_approval_status = MyApprovalStatus.COMMENTED
+
         repo_name = pr["repository_url"].split("/")[-1]
+        num_of_approvals = sum(
+            it["state"] == "APPROVED" for it in pr.get("reviews", [])
+        )
         self.inner_list_walker.append(
-            PRButton(pr["title"], pr["html_url"], pr["draft"], repo_name)
+            PRButton(
+                pr["title"],
+                pr["html_url"],
+                pr["created_at"],
+                pr["draft"],
+                repo_name,
+                num_of_approvals,
+                my_approval_status,
+            )
         )
 
     def _update_list_box_title(self, timestamp):
@@ -79,7 +143,7 @@ class PRGroup(urwid.BoxAdapter):
         self.line_box.set_title(title)
         self.line_box_attr_map.attr_map = {None: title_attr}
 
-    def set_prs(self, prs, timestamp):
+    def set_prs(self, prs, timestamp, me: Optional[str]):
         """
         Set the PRs to be displayed in the list box, and update the title of the list box.
         :param prs: A list of PRs to be displayed.
@@ -89,7 +153,7 @@ class PRGroup(urwid.BoxAdapter):
         self.timestamp = timestamp
         self.inner_list_walker.clear()
         for pr in prs:
-            self._add_pr_button(pr)
+            self._add_pr_button(pr, me)
         self._update_list_box_title(timestamp)
         self.height = len(prs) + 2
         self._invalidate()
@@ -129,7 +193,7 @@ class PreamTeamUI:
         self.list_walker: urwid.SimpleFocusListWalker = urwid.SimpleFocusListWalker([])
         list_box: urwid.ListBox = urwid.ListBox(self.list_walker)
         border_box: urwid.LineBox = urwid.LineBox(list_box)
-        return urwid.Padding(border_box, width=100, align="center")
+        return urwid.Padding(border_box, width=110, align="center")
 
     def set_all_user_updating(self):
         for pr_group in self.list_walker:
@@ -137,17 +201,21 @@ class PreamTeamUI:
         if self.main_loop is not None:
             self.main_loop.draw_screen()
 
-    def set_user_pull_requests(self, user: str, prs: list, timestamp: str):
+    def set_user_pull_requests(
+        self, user: str, prs: list, timestamp: str, me: Optional[str]
+    ):
         for pr_group in self.list_walker:
             if pr_group.get_user() == user:
-                pr_group.set_prs(prs, timestamp)
+                pr_group.set_prs(prs, timestamp, me)
+        self.list_walker.sort(key=lambda x: x.get_num_of_prs())
         if self.main_loop is not None:
             self.main_loop.draw_screen()
 
-    def add_user(self, user: str, prs: Optional[Tuple[list, str]]):
+    def add_user(self, user: str, prs: Optional[Tuple[list, str]], me: Optional[str]):
         prs_list, timestamp = (prs[0], prs[1]) if prs is not None else ([], "")
-        prg = PRGroup(user, prs_list, timestamp)
+        prg = PRGroup(user, prs_list, timestamp, me)
         self.list_walker.append(prg)
+        self.list_walker.sort(key=lambda x: x.get_num_of_prs())
         if self.main_loop is not None:
             self.main_loop.draw_screen()
 

@@ -10,6 +10,7 @@ from pream_team.pream_team_ui import PreamTeamUI
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
+
 class PreamTeamApp:
     def __init__(
         self,
@@ -18,7 +19,9 @@ class PreamTeamApp:
         ui: PreamTeamUI,
         usernames: List[str],
         update_on_startup: bool,
+        me: Optional[str],
     ) -> None:
+        self.me = me
         self.usernames: List[str] = usernames
         self.cache_manager = cache_manager
         self.ui = ui
@@ -30,7 +33,7 @@ class PreamTeamApp:
     def _display_cached_prs(self):
         for user in self.usernames:
             timestamp, prs = self._load_user_prs_from_cache(user)
-            self.ui.add_user(user, (prs, timestamp))
+            self.ui.add_user(user, (prs, timestamp), self.me)
 
     def _load_user_prs_from_cache(self, user: str) -> Tuple[str, List]:
         if self.cache_manager:
@@ -60,7 +63,7 @@ class PreamTeamApp:
                 user, prs, datetime.utcnow().strftime(TIMESTAMP_FORMAT)
             )
         self.ui.set_user_pull_requests(
-            user, prs, datetime.utcnow().strftime(TIMESTAMP_FORMAT)
+            user, prs, datetime.utcnow().strftime(TIMESTAMP_FORMAT), self.me
         )
 
     def _handle_input(self, key: str) -> None:
