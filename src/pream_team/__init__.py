@@ -1,7 +1,8 @@
-from typing import List, Tuple, Optional
+from typing import List, Optional
 
 import argparse
 import os
+import sys
 import yaml
 from pream_team.github_pr_fetcher import GitHubPRFetcher
 
@@ -12,11 +13,32 @@ from pream_team.cache_manager import CacheManager
 def initialize_cache_manager(cache_file_path: str) -> Optional[CacheManager]:
     if os.path.isdir(os.path.dirname(cache_file_path)):
         return CacheManager(cache_file_path)
-    else:
-        return None
+    return None
 
 
-def parse_args() -> Tuple[str, Optional[str], List[str], int, str, bool, Optional[str]]:
+class Config:
+    def __init__(
+        self,
+        token: str,
+        org_name: Optional[str],
+        usernames: List[str],
+        days_back: int,
+        cache_file_path: str,
+        update_on_startup: bool,
+        me: Optional[str],
+        my_team: Optional[str],
+    ):
+        self.token = token
+        self.org_name = org_name
+        self.usernames = usernames
+        self.days_back = days_back
+        self.cache_file_path = cache_file_path
+        self.update_on_startup = update_on_startup
+        self.me = me
+        self.my_team = my_team
+
+
+def parse_args() -> Config:
     parser = argparse.ArgumentParser(
         description="Fetch GitHub PRs for specific users from the past N days."
     )
@@ -27,70 +49,78 @@ def parse_args() -> Tuple[str, Optional[str], List[str], int, str, bool, Optiona
     parser.add_argument("--token", type=str, help="GitHub API token.")
     parser.add_argument("--org", type=str, help="GitHub organization name.")
     parser.add_argument("--me", type=str, help="Your GH account name.")
-
+    parser.add_argument(
+        "--my_team",
+        type=str,
+        help="name of your gh team. used to check for review requests that requested "
+        "team review but not you explicitly.",
+    )
     parser.add_argument(
         "--file",
         type=str,
         default=os.path.expanduser("~/.prs/config.yml"),
         help="Path to YAML file containing 'names', 'days', 'token' and 'org' fields. "
-        + "(Note that command line arguments override YAML file configuration)",
+        "(Note that command line arguments override YAML file configuration)",
     )
 
     args = parser.parse_args()
 
-    token, org_name, usernames, days_back, cache_file_path, update_on_startup, me = (
-        "",
-        None,
-        [],
-        30,
-        "",
-        True,
-        None,
+    config = Config(
+        token="",
+        org_name=None,
+        usernames=[],
+        days_back=30,
+        cache_file_path=os.path.join(os.environ["HOME"], ".prs/cache.json"),
+        update_on_startup=True,
+        me=None,
+        my_team=None,
     )
 
     if os.path.exists(args.file):
-        with open(args.file, "r") as f:
+        with open(args.file, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
-            token = data.get("token", "")
-            org_name = data.get("org", None)
-            usernames = data.get("names", [])
-            days_back = data.get("days-back", 30)
-            me = data.get("me", None)
-            cache_file_path = data.get(
-                "cache_dir", os.environ["HOME"] + "/.prs/cache.json"
-            )
-            update_on_startup = data.get("update_on_startup", True)
+            config.token = data.get("token", "")
+            config.org_name = data.get("org", None)
+            config.usernames = data.get("names", [])
+            config.days_back = data.get("days-back", 30)
+            config.me = data.get("me", None)
+            config.my_team = data.get("my-team", None)
+            config.cache_file_path = data.get("cache_dir", config.cache_file_path)
+            config.update_on_startup = data.get("update_on_startup", True)
 
-    if args.token:
-        token = args.token
-    if args.org:
-        org_name = args.org
-    if args.names:
-        usernames = args.names
-    if args.days:
-        days_back = args.days
-    if args.me:
-        me = args.me
+    config.token = args.token or config.token
+    config.org_name = args.org or config.org_name
+    config.usernames = args.names or config.usernames
+    config.days_back = args.days or config.days_back
+    config.me = args.me or config.me
+    config.my_team = args.my_team or config.my_team
 
-    if not usernames or not token:
+    if not config.usernames or not config.token:
         print("Token and Usernames must be provided.")
-        exit(1)
+        sys.exit(1)
 
-    return token, org_name, usernames, days_back, cache_file_path, update_on_startup, me
+    return config
 
 
 def app_main():
-    token, org_name, usernames, days_back, cache_file_path, update_on_startup, me = (
-        parse_args()
-    )
+    config = parse_args()
 
-    ui = PreamTeamUI(f"Team PRs in the last {days_back} days")
-    cache = initialize_cache_manager(cache_file_path)
+    ui = PreamTeamUI(f"Team PRs in the last {config.days_back} days")
+    cache = initialize_cache_manager(config.cache_file_path)
 
     def fetcher_factory():
-        return GitHubPRFetcher(token, org_name, days_back)
+        return GitHubPRFetcher(config.token, config.org_name, config.days_back)
 
-    app = PreamTeamApp(fetcher_factory, cache, ui, usernames, update_on_startup, me)
+    app = PreamTeamApp(
+        fetcher_factory,
+        cache,
+        ui,
+        config.usernames,
+        config.update_on_startup,
+        config.me,
+        config.my_team,
+        config.days_back,
+    )
     app.run()
 
 
