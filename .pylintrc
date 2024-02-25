@@ -1,12 +1,7 @@
 [MAIN]
-init-hook='import sys; sys.path.append(".")'
+init-hook="import sys; sys.path.append('./src/pream_team')"
 
-disable=
-    C0114, # missing docstring
-    C0115, 
-    C0116, 
-    W0718, 
-    W0719
+disable= C0114, C0115, C0116, W0718, W0719, R0913, R0902, R0903
 
 # Analyse import fallback blocks. This can be used to support both Python 2 and
 # 3 compatible code, which means that the block might have code that exists
