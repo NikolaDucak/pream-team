@@ -13,6 +13,8 @@ COLOR_PALETTE = [
     ("button_draft_focused", "yellow,underline", ""),
     ("title", "dark green,bold", ""),
     ("title-empty", "light gray,bold", ""),
+    ("title-focused", "dark green,bold,standout", ""),
+    ("title-empty-focused", "light gray,bold,standout", ""),
     ("title-updating", "yellow", ""),
 ]
 
@@ -69,6 +71,9 @@ class PRButton(urwid.Button):
     def open_pr(self, _):
         webbrowser.open(self.pr.url)
 
+    def selectable(self) -> bool:
+        return True
+
 
 def pr_to_prbutton(pr: PullRequest, me: Optional[str]):
     latest_review_time = datetime(year=1900, month=1, day=1)
@@ -93,6 +98,13 @@ def pr_to_prbutton(pr: PullRequest, me: Optional[str]):
 
 
 class PRGroup(urwid.BoxAdapter):
+
+    def styles(self, prs):
+        if len(prs) > 0: 
+            return "title", "title-focused"
+        else:
+            return "title-empty", "title-empty-focused"
+
     def __init__(
         self, user, prs: List[PullRequest], timestamp: datetime, me: Optional[str]
     ):
@@ -108,9 +120,9 @@ class PRGroup(urwid.BoxAdapter):
         self.inner_list_walker = urwid.SimpleFocusListWalker([])
         inner_list_box = urwid.ListBox(self.inner_list_walker)
         title = f"{self.user} ── {timestamp.strftime(UI_PR_GROUP_TIMESTAMP_FORMAT)}"
-        title_attr = "title" if len(self.prs) > 0 else "title-empty"
+        nf, f = self.styles(prs)
         self.line_box = urwid.LineBox(inner_list_box, title=title)
-        self.line_box_attr_map = urwid.AttrMap(self.line_box, title_attr)
+        self.line_box_attr_map = urwid.AttrMap(self.line_box, nf, f)
         super().__init__(self.line_box_attr_map, height=len(prs) + 2)
         for pr in prs:
             self._add_pr_button(pr, me)
@@ -162,6 +174,7 @@ class PRGroup(urwid.BoxAdapter):
         return len(self.prs)
 
 
+
 class PreamTeamUI:
     running = False
 
@@ -186,16 +199,16 @@ class PreamTeamUI:
         header: urwid.Text = urwid.Text(title, align="center")
         self.status: urwid.Text = urwid.Text("", align="center")
         help_header: urwid.Text = urwid.Text(
-            "q - exit, r - refresh, arrow keys - select PR, enter/left click - open PR in browser",
+                "q: exit, r: refresh, ↑↓→←: select, enter/click: open PR in browser, tab: toggle focus on pr list",
             align="center",
         )
-        team_prs_list_list: urwid.Padding = self._create_list_box()
+        self.team_prs_list: urwid.Padding = self._create_list_box()
         review_requests_list = self._create_review_requests_list()
-        tabs = urwid.Columns(
+        self.tabs = urwid.Columns(
             widget_list=[
                 urwid.Button(
                     "Team PRs",
-                    on_press=lambda _: self.set_tab(team_prs_list_list),
+                    on_press=lambda _: self.set_tab(self.team_prs_list),
                     align="center",
                 ),
                 urwid.Button(
@@ -206,8 +219,8 @@ class PreamTeamUI:
             ]
         )
         self.main_frame: urwid.Frame = urwid.Frame(
-            header=urwid.Pile([header, help_header, tabs, self.status]),
-            body=team_prs_list_list,
+            header=urwid.Pile([header, help_header, self.tabs, self.status]),
+            body=self.team_prs_list,
         )
         self.main_loop = None
 
@@ -252,6 +265,13 @@ class PreamTeamUI:
         self.status.set_text(status)
         if self.main_loop is not None:
             self.main_loop.draw_screen()
+
+    def toggle_focus(self):
+        focus = self.main_frame.get_focus()
+        if focus == "header":
+            self.main_frame.set_focus("body")
+        else:
+            self.main_frame.set_focus("header")
 
     def run(self, input_handler: Callable):
         loop = asyncio.get_event_loop()
