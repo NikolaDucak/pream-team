@@ -70,17 +70,18 @@ class PreamTeamApp:
     def _load_prs_from_cache(
         self, user: str
     ) -> Optional[Tuple[List[PullRequest], datetime]]:
-        if self.cache_manager:
-            data = self.cache_manager.load_prs(user)
-            if data:
-                limit = datetime.now() - timedelta(days=self.days_back)
-                filtered_prs = [
-                    pr
-                    for pr in raw_pr_info_to_pr_list(data.prs)
-                    if pr.created_at > limit
-                ]
-                return filtered_prs, data.timestamp
-        return None
+        if not self.cache_manager:
+            return None
+        data = self.cache_manager.load_prs(user)
+        if not data:
+            return None
+        limit = (datetime.now() - timedelta(days=self.days_back)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        filtered_prs = [
+            pr for pr in raw_pr_info_to_pr_list(data.prs) if pr.created_at >= limit
+        ]
+        return filtered_prs, data.timestamp
 
     async def _fetch_prs(self) -> None:
         self.ui.set_all_user_updating()
@@ -140,7 +141,6 @@ class PreamTeamApp:
         elif key in ("q", "Q"):
             raise urwid.ExitMainLoop()
         # vim navigation bindings
-
 
     def run(self) -> None:
         def handler(x):

@@ -100,7 +100,7 @@ def pr_to_prbutton(pr: PullRequest, me: Optional[str]):
 class PRGroup(urwid.BoxAdapter):
 
     def styles(self, prs):
-        if len(prs) > 0: 
+        if len(prs) > 0:
             return "title", "title-focused"
         else:
             return "title-empty", "title-empty-focused"
@@ -174,7 +174,6 @@ class PRGroup(urwid.BoxAdapter):
         return len(self.prs)
 
 
-
 class PreamTeamUI:
     running = False
 
@@ -199,7 +198,7 @@ class PreamTeamUI:
         header: urwid.Text = urwid.Text(title, align="center")
         self.status: urwid.Text = urwid.Text("", align="center")
         help_header: urwid.Text = urwid.Text(
-                "q: exit, r: refresh, ↑↓→←: select, enter/click: open PR in browser, tab: toggle focus on pr list",
+            "q: exit, r: refresh, ↑↓→←: select, enter/click: open PR in browser, tab: toggle focus on pr list",
             align="center",
         )
         self.team_prs_list: urwid.Padding = self._create_list_box()
