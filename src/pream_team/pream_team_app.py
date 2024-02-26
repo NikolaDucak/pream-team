@@ -135,8 +135,12 @@ class PreamTeamApp:
         if key in ("r", "R") and not self.updating:
             self.ui.set_status("Refreshing...")
             asyncio.ensure_future(self._fetch_prs())
+        elif key == "tab":
+            self.ui.toggle_focus()
         elif key in ("q", "Q"):
             raise urwid.ExitMainLoop()
+        # vim navigation bindings
+
 
     def run(self) -> None:
         def handler(x):
